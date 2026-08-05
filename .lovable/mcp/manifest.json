@@ -1,0 +1,127 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.1",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://nazcubuutmkerdbmrrct.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "energy-bridge",
+      "version": "0.1.0",
+      "title": "Energy Bridge"
+    },
+    "tools": [
+      {
+        "name": "list_countries",
+        "title": "List countries",
+        "description": "List every country in the Border Energy Index dataset with its price, renewable share, surplus, coordinates and data confidence.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "calculate_bei",
+        "title": "Calculate Border Energy Index",
+        "description": "Compute the Border Energy Index for an exporter/importer country pair, including distance, transmission loss, deliverable energy, price gap and the weighted BEI score.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "exporter": {
+              "type": "string",
+              "description": "Exporting country ISO code or name, e.g. 'DE' or 'Germany'."
+            },
+            "importer": {
+              "type": "string",
+              "description": "Importing country ISO code or name."
+            },
+            "lossPercent": {
+              "description": "Override transmission loss percentage (0-20).",
+              "type": "number"
+            },
+            "renewableShare": {
+              "description": "Override renewable share of the exported surplus, percent.",
+              "type": "number"
+            },
+            "priceGapMultiplier": {
+              "description": "Multiplier applied to the raw price gap.",
+              "type": "number"
+            },
+            "hvdc": {
+              "description": "Simulate HVDC infrastructure (halves the loss rate).",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "exporter",
+            "importer"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "rank_trade_pairs",
+        "title": "Rank cross-border trade pairs",
+        "description": "Rank every viable exporter/importer pair in the dataset by Border Energy Index score, with a short feasibility rationale for each.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "description": "How many top pairs to return (default 5).",
+              "type": "number"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "live_carbon_intensity",
+        "title": "Live grid carbon intensity",
+        "description": "Fetch the latest live grid carbon intensity (gCO2/kWh) for an Electricity Maps zone code, e.g. 'IN-SO'.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": false,
+          "openWorldHint": true
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "zone": {
+              "type": "string",
+              "description": "Electricity Maps zone code, e.g. 'IN-SO', 'DE', 'BR'."
+            }
+          },
+          "required": [
+            "zone"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
