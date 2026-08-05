@@ -15,6 +15,14 @@ const EARTH_RADIUS_KM = 6371;
 /** Base transmission loss: 7% for every 1000 km of line. */
 export const BASE_LOSS_PER_1000KM = 7;
 
+/**
+ * Practical ceiling on transmission loss. Raw distance-based loss can exceed
+ * 100% on intercontinental spans, which is physically meaningless; real
+ * corridors are capped by HVDC engineering limits, so we cap at 20% — the
+ * same range offered by the what-if slider.
+ */
+export const MAX_LOSS_PERCENT = 20;
+
 /** Normalisation bounds used to map the raw feasibility score onto 0-100. */
 const FEASIBILITY_MIN = -20;
 const FEASIBILITY_MAX = 10;
@@ -96,11 +104,12 @@ export function calculateBei(
 ): BeiResult {
   const distanceKm = haversineDistanceKm(countryA.lat, countryA.lng, countryB.lat, countryB.lng);
 
-  const baseLossPercent = transmissionLossPercent(
-    distanceKm,
-    BASE_LOSS_PER_1000KM * (overrides.lossRateMultiplier ?? 1),
+  const baseLossPercent = clamp(
+    transmissionLossPercent(distanceKm, BASE_LOSS_PER_1000KM * (overrides.lossRateMultiplier ?? 1)),
+    0,
+    MAX_LOSS_PERCENT,
   );
-  const lossPercent = clamp(overrides.lossPercent ?? baseLossPercent, 0, 100);
+  const lossPercent = clamp(overrides.lossPercent ?? baseLossPercent, 0, MAX_LOSS_PERCENT);
 
   const deliverableEnergy = countryA.surplus * (1 - lossPercent / 100);
   const priceGap = (countryB.price - countryA.price) * (overrides.priceGapMultiplier ?? 1);
