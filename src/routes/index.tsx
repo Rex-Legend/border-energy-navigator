@@ -24,11 +24,11 @@ export const Route = createFileRoute("/")({
         content:
           "Score cross-border electricity trade between six nations: BEI feasibility, transmission losses, live grid data and AI policy insight for SDG7.",
       },
-      { property: "og:title", content: "Border Energy Index — Energy Without Borders" },
+      { property: "og:title", content: "Border Energy Index — Cross-Border Energy Trade Feasibility" },
       {
         property: "og:description",
         content:
-          "Interactive SDG7 platform scoring cross-border energy trade feasibility with live grid data, what-if scenarios and AI policy insight.",
+          "Score cross-border electricity trade between six nations: BEI feasibility, transmission losses, live grid data and AI policy insight for SDG7.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
