@@ -4,6 +4,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -11,23 +12,41 @@ import {
 } from "recharts";
 import { Switch } from "@/components/ui/switch";
 import { getIntensityHistory, type HistoryPoint } from "@/lib/energy.functions";
+import { bestTradeWindow, type TradeWindow } from "@/lib/bei-calculations";
 
-export function TrendToggle({ zone, beiScore }: { zone: string; beiScore: number }) {
+export function TrendToggle({
+  countryName,
+  zone,
+  beiScore,
+}: {
+  countryName: string;
+  zone: string;
+  beiScore: number;
+}) {
   const fetchHistory = useServerFn(getIntensityHistory);
   const [enabled, setEnabled] = useState(false);
   const [points, setPoints] = useState<HistoryPoint[]>([]);
+  const [window, setWindow] = useState<TradeWindow | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPoints([]);
+    setWindow(null);
+    setMessage(null);
+  }, [countryName]);
 
   useEffect(() => {
     if (!enabled || points.length) return;
     let cancelled = false;
     setLoading(true);
-    fetchHistory({ data: { zone } })
+    fetchHistory({ data: { country: countryName } })
       .then((res) => {
         if (cancelled) return;
         setPoints(res.points);
-        if (!res.ok) setMessage(res.message ?? "Trend data unavailable.");
+        setWindow(bestTradeWindow(res.points));
+        if (!res.ok)
+          setMessage(res.message ?? "Live data unavailable — showing latest published data");
         else if (!res.points.length) setMessage("No trend data returned for this zone.");
       })
       .catch((e: Error) => !cancelled && setMessage(e.message))
@@ -35,7 +54,7 @@ export function TrendToggle({ zone, beiScore }: { zone: string; beiScore: number
     return () => {
       cancelled = true;
     };
-  }, [enabled, zone, points.length, fetchHistory]);
+  }, [enabled, countryName, points.length, fetchHistory]);
 
   const holds = beiScore >= 50;
 
@@ -45,7 +64,7 @@ export function TrendToggle({ zone, beiScore }: { zone: string; beiScore: number
         <div>
           <h3 className="font-display text-lg font-bold text-bei-cream">Show 24-Hour Trend</h3>
           <p className="text-sm text-bei-cream/55">
-            Live grid carbon intensity for India ({zone})
+            Grid carbon intensity for {countryName} ({zone})
           </p>
         </div>
         <Switch checked={enabled} onCheckedChange={setEnabled} aria-label="Show 24-hour trend" />
@@ -57,6 +76,12 @@ export function TrendToggle({ zone, beiScore }: { zone: string; beiScore: number
             <div className="h-56 animate-pulse rounded-2xl bg-bei-cream/10" />
           ) : points.length ? (
             <>
+              {window ? (
+                <p className="mb-3 inline-flex items-center gap-2 rounded-full border border-bei-leaf/40 bg-bei-leaf/10 px-3.5 py-1.5 text-xs font-semibold text-bei-leaf">
+                  Best trade window: {window.startTime} – {window.endTime} (
+                  {Math.round(window.averageIntensity)} gCO₂/kWh avg)
+                </p>
+              ) : null}
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={points} margin={{ top: 8, right: 8, bottom: 0, left: -18 }}>
@@ -74,6 +99,16 @@ export function TrendToggle({ zone, beiScore }: { zone: string; beiScore: number
                       tickLine={false}
                       axisLine={false}
                     />
+                    {window ? (
+                      <ReferenceArea
+                        x1={window.startTime}
+                        x2={window.endTime}
+                        fill="#5BC98C"
+                        fillOpacity={0.18}
+                        stroke="#5BC98C"
+                        strokeOpacity={0.5}
+                      />
+                    ) : null}
                     <Tooltip
                       contentStyle={{
                         background: "#0A1128",
@@ -100,7 +135,9 @@ export function TrendToggle({ zone, beiScore }: { zone: string; beiScore: number
               </p>
             </>
           ) : (
-            <p className="text-sm text-bei-cream/55">{message ?? "No data."}</p>
+            <p className="text-sm text-bei-cream/55">
+              {message ?? "Live data unavailable — showing latest published data"}
+            </p>
           )}
         </div>
       ) : null}

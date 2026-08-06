@@ -1,43 +1,60 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { countryZoneConfig } from "@/lib/countries";
 
-const ZoneInput = z.object({ zone: z.string().min(2).max(8) });
+const CountryInput = z.object({ country: z.string().min(2).max(40) });
 
 export interface LiveIntensity {
   ok: boolean;
+  country?: string | undefined;
+  zone?: string | undefined;
   carbonIntensity?: number | undefined;
-  renewablePercentage?: number | undefined;
   datetime?: string | undefined;
   message?: string | undefined;
 }
 
+const FALLBACK_MESSAGE = "Live data unavailable — showing latest published data";
 
-/** Latest carbon intensity for a zone from Electricity Maps. */
+/**
+ * Single reusable Electricity Maps caller. Resolves the country's own zone and
+ * its own API key from `countryZoneConfig`, so all six countries share one code
+ * path while each uses a separate account.
+ */
+async function callElectricityMaps(country: string, endpoint: "latest" | "history") {
+  const config = countryZoneConfig[country];
+  if (!config) return { ok: false as const, status: 0, message: `Unknown country: ${country}` };
+
+  const key = process.env[config.keyEnv];
+  if (!key) return { ok: false as const, status: 0, message: FALLBACK_MESSAGE, zone: config.zone };
+
+  try {
+    const res = await fetch(
+      `https://api.electricitymap.org/v3/carbon-intensity/${endpoint}?zone=${encodeURIComponent(config.zone)}`,
+      { headers: { "auth-token": key } },
+    );
+    if (!res.ok)
+      return { ok: false as const, status: res.status, message: FALLBACK_MESSAGE, zone: config.zone };
+    return { ok: true as const, json: (await res.json()) as unknown, zone: config.zone };
+  } catch {
+    return { ok: false as const, status: 0, message: FALLBACK_MESSAGE, zone: config.zone };
+  }
+}
+
+/** Latest carbon intensity for one country, using that country's own key. */
 export const getLiveIntensity = createServerFn({ method: "GET" })
-  .inputValidator((input: unknown) => ZoneInput.parse(input))
+  .inputValidator((input: unknown) => CountryInput.parse(input))
   .handler(async ({ data }): Promise<LiveIntensity> => {
-    const key = process.env["ELECTRICITYMAPS_API_KEY"];
-    if (!key) return { ok: false, message: "Live feed not configured" };
-
-    try {
-      const res = await fetch(
-        `https://api.electricitymap.org/v3/carbon-intensity/latest?zone=${encodeURIComponent(data.zone)}`,
-        { headers: { "auth-token": key } },
-      );
-      if (!res.ok) return { ok: false, message: `Electricity Maps error ${res.status}` };
-      const json = (await res.json()) as {
-        carbonIntensity?: number;
-        datetime?: string;
-        updatedAt?: string;
-      };
-      return {
-        ok: true,
-        carbonIntensity: json.carbonIntensity,
-        datetime: json.datetime ?? json.updatedAt,
-      };
-    } catch (error) {
-      return { ok: false, message: (error as Error).message };
-    }
+    const result = await callElectricityMaps(data.country, "latest");
+    if (!result.ok)
+      return { ok: false, country: data.country, zone: result.zone, message: result.message };
+    const json = result.json as { carbonIntensity?: number; datetime?: string; updatedAt?: string };
+    return {
+      ok: true,
+      country: data.country,
+      zone: result.zone,
+      carbonIntensity: json.carbonIntensity,
+      datetime: json.datetime ?? json.updatedAt,
+    };
   });
 
 export interface HistoryPoint {
@@ -45,31 +62,28 @@ export interface HistoryPoint {
   carbonIntensity: number;
 }
 
-/** 24-hour carbon intensity history for a zone. */
+/** 24-hour carbon intensity history for one country, using that country's key. */
 export const getIntensityHistory = createServerFn({ method: "GET" })
-  .inputValidator((input: unknown) => ZoneInput.parse(input))
-  .handler(async ({ data }): Promise<{ ok: boolean; points: HistoryPoint[]; message?: string }> => {
-    const key = process.env["ELECTRICITYMAPS_API_KEY"];
-    if (!key) return { ok: false, points: [], message: "Live feed not configured" };
-
-    try {
-      const res = await fetch(
-        `https://api.electricitymap.org/v3/carbon-intensity/history?zone=${encodeURIComponent(data.zone)}`,
-        { headers: { "auth-token": key } },
-      );
-      if (!res.ok) return { ok: false, points: [], message: `Electricity Maps error ${res.status}` };
-      const json = (await res.json()) as {
-        history?: { datetime: string; carbonIntensity: number }[];
-      };
+  .inputValidator((input: unknown) => CountryInput.parse(input))
+  .handler(
+    async ({
+      data,
+    }): Promise<{
+      ok: boolean;
+      points: HistoryPoint[];
+      zone?: string | undefined;
+      message?: string | undefined;
+    }> => {
+      const result = await callElectricityMaps(data.country, "history");
+      if (!result.ok) return { ok: false, points: [], zone: result.zone, message: result.message };
+      const json = result.json as { history?: { datetime: string; carbonIntensity: number }[] };
       const points = (json.history ?? []).map((h) => ({
-        time: new Date(h.datetime).toLocaleTimeString([], { hour: "2-digit" }),
+        time: new Date(h.datetime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         carbonIntensity: h.carbonIntensity,
       }));
-      return { ok: true, points };
-    } catch (error) {
-      return { ok: false, points: [], message: (error as Error).message };
-    }
-  });
+      return { ok: true, points, zone: result.zone };
+    },
+  );
 
 const InsightInput = z.object({
   countryA: z.string(),

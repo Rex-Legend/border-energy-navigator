@@ -20,8 +20,13 @@ export interface Country {
   /** Annual surplus (+) or deficit (-) in TWh */
   surplus: number;
   confidence: Confidence;
-  /** Electricity Maps zone code — only set for countries with live data */
-  liveZone?: string;
+  /** Electricity Maps zone code used for live carbon-intensity lookups */
+  liveZone: string;
+  /**
+   * Latest published grid carbon intensity (gCO2/kWh). Used as the fallback
+   * whenever the live Electricity Maps call fails for this country.
+   */
+  baseIntensity: number;
 }
 
 export const COUNTRIES: Country[] = [
@@ -36,6 +41,8 @@ export const COUNTRIES: Country[] = [
     lng: 10.45,
     surplus: 15,
     confidence: "High",
+    liveZone: "DE",
+    baseIntensity: 380,
   },
   {
     id: "IN",
@@ -49,6 +56,7 @@ export const COUNTRIES: Country[] = [
     surplus: -20,
     confidence: "Medium",
     liveZone: "IN",
+    baseIntensity: 700,
   },
   {
     id: "KE",
@@ -61,6 +69,8 @@ export const COUNTRIES: Country[] = [
     lng: 37.9,
     surplus: 5,
     confidence: "Medium",
+    liveZone: "KE",
+    baseIntensity: 95,
   },
   {
     id: "BR",
@@ -73,6 +83,8 @@ export const COUNTRIES: Country[] = [
     lng: -51.93,
     surplus: 30,
     confidence: "High",
+    liveZone: "BR-CS",
+    baseIntensity: 110,
   },
   {
     id: "US",
@@ -85,6 +97,8 @@ export const COUNTRIES: Country[] = [
     lng: -95.71,
     surplus: -10,
     confidence: "High",
+    liveZone: "US-MIDA-PJM",
+    baseIntensity: 372,
   },
   {
     id: "AU",
@@ -97,6 +111,8 @@ export const COUNTRIES: Country[] = [
     lng: 133.78,
     surplus: 8,
     confidence: "Medium",
+    liveZone: "AU-NSW",
+    baseIntensity: 560,
   },
 ];
 
@@ -108,6 +124,29 @@ export const CONTINENT_COLORS: Record<string, string> = {
   "North America": "var(--color-bei-amber)",
   Oceania: "var(--color-bei-teal)",
 };
+
+/**
+ * Per-country Electricity Maps configuration. Each country is registered to its
+ * own API account, so each has a dedicated environment variable holding that
+ * account's key. Zone codes are public identifiers, never secrets.
+ */
+export const countryZoneConfig: Record<string, { zone: string; keyEnv: string }> = {
+  India: { zone: "IN", keyEnv: "ELECTRICITYMAPS_KEY_INDIA" },
+  Germany: { zone: "DE", keyEnv: "ELECTRICITYMAPS_KEY_GERMANY" },
+  Kenya: { zone: "KE", keyEnv: "ELECTRICITYMAPS_KEY_KENYA" },
+  Brazil: { zone: "BR-CS", keyEnv: "ELECTRICITYMAPS_KEY_BRAZIL" },
+  USA: { zone: "US-MIDA-PJM", keyEnv: "ELECTRICITYMAPS_KEY_USA" },
+  Australia: { zone: "AU-NSW", keyEnv: "ELECTRICITYMAPS_KEY_AUSTRALIA" },
+};
+
+export const CONTINENTS = [
+  "Asia",
+  "Africa",
+  "Europe",
+  "North America",
+  "South America",
+  "Oceania",
+] as const;
 
 export function getCountry(id: string): Country {
   const found = COUNTRIES.find((c) => c.id === id);

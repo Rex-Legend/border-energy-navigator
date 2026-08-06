@@ -66,20 +66,11 @@ export function Hero({ onExplore }: { onExplore: () => void }) {
         style={{ y: contentY, opacity: contentOpacity }}
         className="relative z-10 mx-auto max-w-3xl px-6 text-center"
       >
-        <motion.span
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-2 rounded-full border border-bei-gold/40 bg-bei-gold/10 px-4 py-1.5 text-xs font-semibold tracking-[0.18em] text-bei-gold uppercase"
-        >
-          IGEN Energathon 2026
-        </motion.span>
-
         <motion.h1
           initial={{ opacity: 0, y: 22 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.1 }}
-          className="mt-6 font-display text-5xl leading-[1.05] font-bold text-balance-tight text-bei-cream sm:text-6xl md:text-7xl"
+          className="font-display text-5xl leading-[1.05] font-bold text-balance-tight text-bei-cream sm:text-6xl md:text-7xl"
         >
           Border Energy Index
         </motion.h1>
@@ -90,7 +81,7 @@ export function Hero({ onExplore }: { onExplore: () => void }) {
           transition={{ duration: 0.7, delay: 0.2 }}
           className="mx-auto mt-6 max-w-xl text-base text-balance-tight text-bei-cream/75 sm:text-lg"
         >
-          Mapping Energy Without Borders — SDG7 Cross-Border Trade Feasibility
+          A Cross-Border Energy Trade Feasibility Platform
         </motion.p>
 
         <motion.button

@@ -2,12 +2,19 @@ import { motion } from "framer-motion";
 import { Trophy } from "lucide-react";
 import { useState } from "react";
 import { AnimatedNumber } from "./motion-primitives";
-import { COUNTRIES } from "@/lib/countries";
+import { COUNTRIES, type Country } from "@/lib/countries";
 import { pairReason, rankAllPairs, type BeiResult } from "@/lib/bei-calculations";
 
 const MEDALS = ["🥇", "🥈", "🥉"];
 
-export function BestPairs({ onSelectPair }: { onSelectPair: (a: string, b: string) => void }) {
+export function BestPairs({
+  onSelectPair,
+  countries,
+}: {
+  onSelectPair: (a: string, b: string) => void;
+  countries?: Country[];
+}) {
+  const pool = countries ?? COUNTRIES;
   const [top, setTop] = useState<BeiResult[] | null>(null);
 
   return (
@@ -24,7 +31,7 @@ export function BestPairs({ onSelectPair }: { onSelectPair: (a: string, b: strin
         <motion.button
           whileHover={{ scale: 1.04 }}
           whileTap={{ scale: 0.97 }}
-          onClick={() => setTop(rankAllPairs(COUNTRIES).slice(0, 3))}
+          onClick={() => setTop(rankAllPairs(pool).slice(0, 3))}
           className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground"
         >
           <Trophy className="size-4" />

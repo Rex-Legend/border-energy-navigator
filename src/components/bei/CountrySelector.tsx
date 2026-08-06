@@ -1,11 +1,11 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense } from "react";
 import { ClientOnly } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { motion } from "framer-motion";
 import { Calculator } from "lucide-react";
 import { ConfidenceBadge, LiveBadge, PublishedBadge } from "./badges";
+import { useLiveGrid } from "./LiveGridProvider";
 import { COUNTRIES, type Country } from "@/lib/countries";
-import { getLiveIntensity, type LiveIntensity } from "@/lib/energy.functions";
+import type { LiveIntensity } from "@/lib/energy.functions";
 import {
   Select,
   SelectContent,
@@ -47,12 +47,10 @@ function CountryCard({
             {country.flag} {country.name}
           </div>
         </div>
-        {country.liveZone ? (
-          liveLoading ? (
-            <span className="h-5 w-20 animate-pulse rounded-full bg-muted" />
-          ) : (
-            <LiveBadge timestamp={live?.datetime} />
-          )
+        {liveLoading ? (
+          <span className="h-5 w-20 animate-pulse rounded-full bg-muted" />
+        ) : live?.ok ? (
+          <LiveBadge timestamp={live.datetime} />
         ) : (
           <PublishedBadge />
         )}
@@ -80,13 +78,14 @@ function CountryCard({
 
       <div className="mt-5 flex flex-wrap items-center gap-2">
         <ConfidenceBadge confidence={country.confidence} />
-        {country.liveZone && live?.ok && live.carbonIntensity ? (
+        {live?.ok && live.carbonIntensity ? (
           <span className="text-xs text-muted-foreground">
             {live.carbonIntensity} gCO₂/kWh live grid intensity
           </span>
-        ) : null}
-        {country.liveZone && live && !live.ok ? (
-          <span className="text-xs text-muted-foreground">{live.message}</span>
+        ) : !liveLoading ? (
+          <span className="text-xs text-muted-foreground">
+            Live data unavailable — showing latest published data ({country.baseIntensity} gCO₂/kWh)
+          </span>
         ) : null}
       </div>
     </motion.div>
@@ -99,37 +98,32 @@ export function CountrySelector({
   onSelect,
   onPick,
   onCalculate,
+  countries,
 }: {
   selectedA: string | null;
   selectedB: string | null;
   onSelect: (id: string) => void;
   onPick: (role: "A" | "B", id: string) => void;
   onCalculate: () => void;
+  countries?: Country[];
 }) {
-  const fetchLive = useServerFn(getLiveIntensity);
-  const [live, setLive] = useState<LiveIntensity | null>(null);
-  const [liveLoading, setLiveLoading] = useState(true);
+  const pool = countries ?? COUNTRIES;
+  const { data: liveData, loading: liveLoading } = useLiveGrid();
 
-  useEffect(() => {
-    let cancelled = false;
-    fetchLive({ data: { zone: "IN" } })
-      .then((res) => !cancelled && setLive(res))
-      .catch((e: Error) => !cancelled && setLive({ ok: false, message: e.message }))
-      .finally(() => !cancelled && setLiveLoading(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchLive]);
-
-  const countryA = COUNTRIES.find((c) => c.id === selectedA) ?? null;
-  const countryB = COUNTRIES.find((c) => c.id === selectedB) ?? null;
+  const countryA = pool.find((c) => c.id === selectedA) ?? null;
+  const countryB = pool.find((c) => c.id === selectedB) ?? null;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
       <div className="h-[380px] overflow-hidden rounded-3xl border border-border shadow-sm sm:h-[460px]">
         <ClientOnly fallback={<MapSkeleton />}>
           <Suspense fallback={<MapSkeleton />}>
-            <CountryMap selectedA={selectedA} selectedB={selectedB} onSelect={onSelect} />
+            <CountryMap
+              selectedA={selectedA}
+              selectedB={selectedB}
+              onSelect={onSelect}
+              countries={pool}
+            />
           </Suspense>
         </ClientOnly>
       </div>
@@ -154,7 +148,7 @@ export function CountrySelector({
                   <SelectValue placeholder="Select a country" />
                 </SelectTrigger>
                 <SelectContent>
-                  {COUNTRIES.map((c) => (
+                  {pool.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.flag} {c.name}
                     </SelectItem>
@@ -166,10 +160,20 @@ export function CountrySelector({
         </div>
 
         {countryA ? (
-          <CountryCard country={countryA} role="A" live={live} liveLoading={liveLoading} />
+          <CountryCard
+            country={countryA}
+            role="A"
+            live={liveData[countryA.name] ?? null}
+            liveLoading={liveLoading}
+          />
         ) : null}
         {countryB ? (
-          <CountryCard country={countryB} role="B" live={live} liveLoading={liveLoading} />
+          <CountryCard
+            country={countryB}
+            role="B"
+            live={liveData[countryB.name] ?? null}
+            liveLoading={liveLoading}
+          />
         ) : null}
 
         <motion.button
