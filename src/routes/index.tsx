@@ -1,7 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { Globe2, Leaf } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Globe2 } from "lucide-react";
 import { Hero } from "@/components/bei/Hero";
+import { Abstract } from "@/components/bei/Abstract";
+import { SiteHeader } from "@/components/bei/SiteHeader";
+import { LiveGridProvider, resolveIntensity, useLiveGrid } from "@/components/bei/LiveGridProvider";
+import { ContinentFilter } from "@/components/bei/ContinentFilter";
 import { CountrySelector } from "@/components/bei/CountrySelector";
 import { ResultsPanel } from "@/components/bei/ResultsPanel";
 import { ScenarioSliders, type ScenarioState } from "@/components/bei/ScenarioSliders";
@@ -10,10 +14,11 @@ import { PolicyInsight } from "@/components/bei/PolicyInsight";
 import { BestPairs } from "@/components/bei/BestPairs";
 import { ComparisonMode } from "@/components/bei/ComparisonMode";
 import { HvdcSimulator } from "@/components/bei/HvdcSimulator";
+import { MultiHopPath } from "@/components/bei/MultiHopPath";
 import { WhitePaper } from "@/components/bei/WhitePaper";
 import { Reveal } from "@/components/bei/motion-primitives";
 import { calculateBei } from "@/lib/bei-calculations";
-import { COUNTRIES, getCountry } from "@/lib/countries";
+import { CONTINENTS, COUNTRIES, getCountry } from "@/lib/countries";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -24,7 +29,10 @@ export const Route = createFileRoute("/")({
         content:
           "Score cross-border electricity trade between six nations: BEI feasibility, transmission losses, live grid data and AI policy insight for SDG7.",
       },
-      { property: "og:title", content: "Border Energy Index — Cross-Border Energy Trade Feasibility" },
+      {
+        property: "og:title",
+        content: "Border Energy Index — Cross-Border Energy Trade Feasibility",
+      },
       {
         property: "og:description",
         content:
@@ -34,19 +42,64 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: Index,
+  component: IndexPage,
 });
+
+function IndexPage() {
+  return (
+    <LiveGridProvider>
+      <SiteHeader />
+      <Index />
+    </LiveGridProvider>
+  );
+}
 
 function Index() {
   const toolRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const { data: liveData } = useLiveGrid();
 
+  const [continents, setContinents] = useState<string[]>([...CONTINENTS]);
   const [selectedA, setSelectedA] = useState<string | null>("BR");
   const [selectedB, setSelectedB] = useState<string | null>("IN");
   const [committed, setCommitted] = useState<{ a: string; b: string } | null>(null);
   const [scenario, setScenario] = useState<ScenarioState | null>(null);
   const [hvdc, setHvdc] = useState(false);
   const [insight, setInsight] = useState("");
+
+  const visibleCountries = useMemo(
+    () => COUNTRIES.filter((c) => continents.includes(c.continent)),
+    [continents],
+  );
+
+  const commitPair = useCallback((a: string, b: string) => {
+    const fresh = calculateBei(getCountry(a), getCountry(b));
+    setSelectedA(a);
+    setSelectedB(b);
+    setCommitted({ a, b });
+    setScenario({
+      lossPercent: Number(fresh.lossPercent.toFixed(1)),
+      renewableShare: fresh.countryA.renewable,
+      priceGapMultiplier: 1,
+    });
+    setInsight("");
+    setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  }, []);
+
+  // --- Shared link: ?a=India&b=Kenya auto-selects and scrolls to results ---
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const a = params.get("a");
+    const b = params.get("b");
+    if (!a || !b) return;
+    const match = (value: string) =>
+      COUNTRIES.find(
+        (c) => c.name.toLowerCase() === value.toLowerCase() || c.id.toLowerCase() === value.toLowerCase(),
+      );
+    const ca = match(a);
+    const cb = match(b);
+    if (ca && cb && ca.id !== cb.id) commitPair(ca.id, cb.id);
+  }, [commitPair]);
 
   const handleMapSelect = (id: string) => {
     if (selectedA && !selectedB && id !== selectedA) return setSelectedB(id);
@@ -68,16 +121,7 @@ function Index() {
 
   const handleCalculate = () => {
     if (!selectedA || !selectedB || selectedA === selectedB) return;
-    const pair = { a: selectedA, b: selectedB };
-    const fresh = calculateBei(getCountry(pair.a), getCountry(pair.b));
-    setCommitted(pair);
-    setScenario({
-      lossPercent: Number(fresh.lossPercent.toFixed(1)),
-      renewableShare: fresh.countryA.renewable,
-      priceGapMultiplier: 1,
-    });
-    setInsight("");
-    setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    commitPair(selectedA, selectedB);
   };
 
   const activeResult = useMemo(() => {
@@ -109,28 +153,28 @@ function Index() {
     });
   };
 
-  const handleSelectPair = (a: string, b: string) => {
-    setSelectedA(a);
-    setSelectedB(b);
-    const fresh = calculateBei(getCountry(a), getCountry(b));
-    setCommitted({ a, b });
-    setScenario({
-      lossPercent: Number(fresh.lossPercent.toFixed(1)),
-      renewableShare: fresh.countryA.renewable,
-      priceGapMultiplier: 1,
-    });
-    setInsight("");
-    setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
-  };
-
   const handleInsight = useCallback((text: string) => setInsight(text), []);
 
-  const indiaInvolved =
-    committed?.a === "IN" || committed?.b === "IN" ? COUNTRIES.find((c) => c.id === "IN") : null;
+  const intensities = displayResult
+    ? {
+        exporter: resolveIntensity(
+          displayResult.countryA.name,
+          displayResult.countryA.baseIntensity,
+          liveData,
+        ),
+        importer: resolveIntensity(
+          displayResult.countryB.name,
+          displayResult.countryB.baseIntensity,
+          liveData,
+        ),
+      }
+    : null;
 
   return (
     <main className="font-sans">
       <Hero onExplore={() => toolRef.current?.scrollIntoView({ behavior: "smooth" })} />
+
+      <Abstract />
 
       {/* --- Selector --- */}
       <section ref={toolRef} className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
@@ -142,6 +186,9 @@ function Index() {
             Select a trade corridor
           </h2>
         </Reveal>
+        <Reveal delay={0.05} className="mt-6">
+          <ContinentFilter active={continents} onChange={setContinents} />
+        </Reveal>
         <Reveal delay={0.1} className="mt-8">
           <CountrySelector
             selectedA={selectedA}
@@ -149,6 +196,7 @@ function Index() {
             onSelect={handleMapSelect}
             onPick={handlePick}
             onCalculate={handleCalculate}
+            countries={visibleCountries}
           />
         </Reveal>
       </section>
@@ -156,7 +204,7 @@ function Index() {
       {/* --- Results / scenarios / AI --- */}
       <section ref={resultsRef} className="bg-bei-navy py-20 sm:py-28">
         <div className="mx-auto max-w-6xl space-y-14 px-6">
-          {displayResult && activeResult && hvdcResult && scenario ? (
+          {displayResult && activeResult && hvdcResult && scenario && intensities ? (
             <>
               <Reveal>
                 <span className="text-xs font-semibold tracking-[0.2em] text-bei-gold uppercase">
@@ -168,7 +216,12 @@ function Index() {
               </Reveal>
 
               <Reveal>
-                <ResultsPanel result={displayResult} />
+                <ResultsPanel
+                  result={displayResult}
+                  exporterIntensity={intensities.exporter.value}
+                  importerIntensity={intensities.importer.value}
+                  intensityIsLive={intensities.exporter.live && intensities.importer.live}
+                />
               </Reveal>
 
               <Reveal>
@@ -188,11 +241,17 @@ function Index() {
                 />
               </Reveal>
 
-              {indiaInvolved ? (
-                <Reveal>
-                  <TrendToggle zone="IN" beiScore={displayResult.beiScore} />
-                </Reveal>
-              ) : null}
+              <Reveal>
+                <MultiHopPath result={displayResult} countries={COUNTRIES} />
+              </Reveal>
+
+              <Reveal>
+                <TrendToggle
+                  countryName={displayResult.countryA.name}
+                  zone={displayResult.countryA.liveZone}
+                  beiScore={displayResult.beiScore}
+                />
+              </Reveal>
 
               <Reveal>
                 <PolicyInsight result={displayResult} onInsight={handleInsight} />
@@ -216,7 +275,7 @@ function Index() {
       {/* --- Recommender --- */}
       <section className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
         <Reveal>
-          <BestPairs onSelectPair={handleSelectPair} />
+          <BestPairs onSelectPair={commitPair} countries={visibleCountries} />
         </Reveal>
       </section>
 
@@ -224,7 +283,7 @@ function Index() {
       <section className="bg-secondary/40 py-20 sm:py-24">
         <div className="mx-auto max-w-6xl px-6">
           <Reveal>
-            <ComparisonMode />
+            <ComparisonMode countries={visibleCountries} />
           </Reveal>
         </div>
       </section>
@@ -242,17 +301,11 @@ function Index() {
         )}
       </section>
 
-      <footer className="bg-bei-forest-deep py-14">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-bei-gold/40 bg-bei-gold/10 px-4 py-1.5 text-xs font-semibold text-bei-gold">
-            <Leaf className="size-3.5" />
-            Contributing to SDG7: Affordable and Clean Energy
-          </div>
-          <p className="font-display text-lg font-bold text-bei-cream">
-            Built for IGEN Energathon 2026 — Energy Without Borders for Sustainable Communities
-          </p>
-          <p className="text-xs text-bei-cream/50">
-            Dataset: latest published national figures; India grid intensity via Electricity Maps.
+      <footer className="bg-bei-forest-deep py-12">
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-2 px-6 text-center">
+          <p className="font-display text-lg font-bold text-bei-cream">Border Energy Index</p>
+          <p className="text-sm text-bei-cream/60">
+            Cross-Border Renewable Energy Trade Feasibility Analysis
           </p>
         </div>
       </footer>
