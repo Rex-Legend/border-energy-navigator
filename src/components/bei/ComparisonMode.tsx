@@ -16,19 +16,20 @@ import {
 } from "recharts";
 import { Checkbox } from "@/components/ui/checkbox";
 import { calculateBei, normalisedProfile } from "@/lib/bei-calculations";
-import { CONTINENT_COLORS, COUNTRIES } from "@/lib/countries";
+import { CONTINENT_COLORS, COUNTRIES, type Country } from "@/lib/countries";
 
 const METRICS = ["Renewable share", "Price level", "Export capacity", "BEI potential"] as const;
 
 const SERIES_COLORS = ["#FFC93C", "#5BC98C", "#6BB6E6", "#E8974A", "#9C8CE0", "#4FC3B0"];
 
-export function ComparisonMode() {
+export function ComparisonMode({ countries }: { countries?: Country[] }) {
+  const pool = countries ?? COUNTRIES;
   const [selected, setSelected] = useState<string[]>(["DE", "BR", "KE"]);
 
-  const chosen = COUNTRIES.filter((c) => selected.includes(c.id));
+  const chosen = pool.filter((c) => selected.includes(c.id));
 
   const radarData = useMemo(() => {
-    const profiles = chosen.map((c) => normalisedProfile(c, COUNTRIES));
+    const profiles = chosen.map((c) => normalisedProfile(c, pool));
     return METRICS.map((metric) => {
       const row: Record<string, string | number> = { metric };
       profiles.forEach((p) => {
@@ -55,7 +56,7 @@ export function ComparisonMode() {
 
   const toggle = (id: string) =>
     setSelected((prev) => {
-      if (prev.includes(id)) return prev.length > 3 ? prev.filter((x) => x !== id) : prev;
+      if (prev.includes(id)) return prev.length > 2 ? prev.filter((x) => x !== id) : prev;
       return prev.length < 6 ? [...prev, id] : prev;
     });
 
@@ -67,7 +68,7 @@ export function ComparisonMode() {
       </p>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        {COUNTRIES.map((country) => (
+        {pool.map((country) => (
           <label
             key={country.id}
             className="glass flex cursor-pointer items-center gap-2.5 rounded-full px-4 py-2 text-sm font-medium transition-transform hover:scale-105"

@@ -134,7 +134,7 @@ export function PolicyInsight({
         </div>
 
         <p className="mt-5 text-xs text-bei-cream/45">
-          Generated for the “Energy Without Borders” SDG7 white paper — refreshed automatically when
+          Generated for the SDG7 policy white paper — refreshed automatically when
           scenario inputs change.
         </p>
       </div>

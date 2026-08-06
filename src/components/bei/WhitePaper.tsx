@@ -20,9 +20,13 @@ export function WhitePaper({ result, insight }: { result: BeiResult; insight: st
 
   const downloadPdf = async () => {
     const { jsPDF } = await import("jspdf");
+    // Print-optimised: white page, dark text, no app theme colours.
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     const margin = 56;
     let y = margin;
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, doc.internal.pageSize.getWidth(), doc.internal.pageSize.getHeight(), "F");
+    doc.setTextColor(20);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
@@ -30,11 +34,13 @@ export function WhitePaper({ result, insight }: { result: BeiResult; insight: st
     y += 22;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(11);
+    doc.setTextColor(70);
     doc.text(
-      `Energy Without Borders · SDG7 · ${result.countryA.name} to ${result.countryB.name}`,
+      `Cross-Border Renewable Energy Trade Feasibility · ${result.countryA.name} to ${result.countryB.name}`,
       margin,
       y,
     );
+    doc.setTextColor(20);
     y += 30;
 
     doc.setFont("helvetica", "bold");
@@ -67,7 +73,7 @@ export function WhitePaper({ result, insight }: { result: BeiResult; insight: st
     doc.setFontSize(9);
     doc.setTextColor(120);
     doc.text(
-      "Built for IGEN Energathon 2026 — Energy Without Borders for Sustainable Communities",
+      `Border Energy Index · Cross-Border Renewable Energy Trade Feasibility Analysis · generated ${new Date().toLocaleDateString()}`,
       margin,
       y,
     );
@@ -112,36 +118,36 @@ export function WhitePaper({ result, insight }: { result: BeiResult; insight: st
         <motion.article
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mt-8 rounded-3xl border border-border bg-card p-8 shadow-sm sm:p-12"
+          className="mt-8 rounded-3xl border border-neutral-300 bg-white p-8 text-neutral-900 shadow-sm sm:p-12"
         >
-          <p className="text-[11px] tracking-[0.24em] text-muted-foreground uppercase">
-            Energy Without Borders · SDG7 White Paper · Excerpt
+          <p className="text-[11px] tracking-[0.24em] text-neutral-500 uppercase">
+            Border Energy Index · White Paper Excerpt · Print view
           </p>
-          <h4 className="mt-3 font-display text-3xl font-bold text-foreground">
+          <h4 className="mt-3 font-display text-3xl font-bold text-neutral-900">
             Cross-Border Feasibility: {result.countryA.name} → {result.countryB.name}
           </h4>
 
-          <h5 className="mt-8 font-display text-lg font-bold text-foreground">
+          <h5 className="mt-8 font-display text-lg font-bold text-neutral-900">
             1. Trade Corridor Data
           </h5>
           <table className="mt-3 w-full text-sm">
             <tbody>
               {rows.map(([label, value]) => (
-                <tr key={label} className="border-b border-border/60">
-                  <th className="py-2 text-left font-medium text-muted-foreground">{label}</th>
-                  <td className="py-2 text-right font-semibold text-foreground">{value}</td>
+                <tr key={label} className="border-b border-neutral-200">
+                  <th className="py-2 text-left font-medium text-neutral-600">{label}</th>
+                  <td className="py-2 text-right font-semibold text-neutral-900">{value}</td>
                 </tr>
               ))}
             </tbody>
           </table>
 
-          <h5 className="mt-8 font-display text-lg font-bold text-foreground">2. Policy Insight</h5>
-          <p className="mt-3 border-l-2 border-accent pl-4 text-sm leading-relaxed text-foreground/85 italic">
+          <h5 className="mt-8 font-display text-lg font-bold text-neutral-900">2. Policy Insight</h5>
+          <p className="mt-3 border-l-2 border-neutral-400 pl-4 text-sm leading-relaxed text-neutral-700 italic">
             {insight || "Policy insight is still being generated."}
           </p>
 
-          <p className="mt-8 text-xs text-muted-foreground">
-            Built for IGEN Energathon 2026 — Energy Without Borders for Sustainable Communities.
+          <p className="mt-8 text-xs text-neutral-500">
+            Border Energy Index — Cross-Border Renewable Energy Trade Feasibility Analysis.
           </p>
         </motion.article>
       ) : null}

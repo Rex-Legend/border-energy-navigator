@@ -187,3 +187,86 @@ export function normalisedProfile(country: Country, all: Country[]) {
     "BEI potential": bestPair ? bestPair.beiScore : 0,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Additional calculations (emissions avoided, multi-hop relay, trade window)
+// ---------------------------------------------------------------------------
+
+/**
+ * Estimated CO2 avoided (tonnes) if the trade happens.
+ *
+ *   tonnes = deliverableEnergy (TWh) x (CI_importer - CI_exporter) (gCO2/kWh) x 1000
+ *
+ * 1 TWh at 1 gCO2/kWh equals 1e9 g, i.e. 1,000 tonnes. A negative result means
+ * the importing grid is already cleaner than the exporting grid.
+ */
+export function emissionsAvoidedTonnes(
+  deliverableEnergyTwh: number,
+  exporterIntensity: number,
+  importerIntensity: number,
+): number {
+  return deliverableEnergyTwh * (importerIntensity - exporterIntensity) * 1000;
+}
+
+export interface RelayPath {
+  via: Country;
+  /** Combined BEI of the A->C and C->B legs (mean of the two leg scores). */
+  score: number;
+  legOne: BeiResult;
+  legTwo: BeiResult;
+}
+
+/**
+ * Multi-hop trade path search. Evaluates every A -> C -> B relay across the
+ * dataset and returns the best intermediate country, if any relay beats the
+ * direct corridor. Relay score is the mean of the two leg BEI scores, so a hop
+ * only wins when both legs are individually workable.
+ */
+export function bestRelayPath(
+  countryA: Country,
+  countryB: Country,
+  all: Country[],
+): RelayPath | null {
+  let best: RelayPath | null = null;
+  for (const via of all) {
+    if (via.id === countryA.id || via.id === countryB.id) continue;
+    const legOne = calculateBei(countryA, via);
+    const legTwo = calculateBei(via, countryB);
+    const score = (legOne.beiScore + legTwo.beiScore) / 2;
+    if (!best || score > best.score) best = { via, score, legOne, legTwo };
+  }
+  return best;
+}
+
+export interface TradeWindow {
+  startTime: string;
+  endTime: string;
+  averageIntensity: number;
+}
+
+/**
+ * Time-of-day feasibility: finds the contiguous window (default 3 points) in
+ * the last 24h with the lowest average exporting-country carbon intensity —
+ * the moment the corridor would have been at its cleanest and most feasible.
+ */
+export function bestTradeWindow(
+  points: { time: string; carbonIntensity: number }[],
+  windowSize = 3,
+): TradeWindow | null {
+  if (points.length < windowSize) return null;
+  let bestIndex = 0;
+  let bestAvg = Infinity;
+  for (let i = 0; i + windowSize <= points.length; i += 1) {
+    const slice = points.slice(i, i + windowSize);
+    const avg = slice.reduce((sum, p) => sum + p.carbonIntensity, 0) / windowSize;
+    if (avg < bestAvg) {
+      bestAvg = avg;
+      bestIndex = i;
+    }
+  }
+  return {
+    startTime: points[bestIndex]!.time,
+    endTime: points[bestIndex + windowSize - 1]!.time,
+    averageIntensity: bestAvg,
+  };
+}

@@ -101,7 +101,7 @@
       {
         "name": "live_carbon_intensity",
         "title": "Live grid carbon intensity",
-        "description": "Fetch the latest live grid carbon intensity (gCO2/kWh) for an Electricity Maps zone code, e.g. 'IN-SO'.",
+        "description": "Fetch the latest live grid carbon intensity (gCO2/kWh) for one of the six tracked countries.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": false,
@@ -111,13 +111,21 @@
           "$schema": "http://json-schema.org/draft-07/schema#",
           "type": "object",
           "properties": {
-            "zone": {
+            "country": {
               "type": "string",
-              "description": "Electricity Maps zone code, e.g. 'IN-SO', 'DE', 'BR'."
+              "enum": [
+                "India",
+                "Germany",
+                "Kenya",
+                "Brazil",
+                "USA",
+                "Australia"
+              ],
+              "description": "Country name, e.g. 'India', 'Germany'."
             }
           },
           "required": [
-            "zone"
+            "country"
           ]
         },
         "outputSchema": null

@@ -1,16 +1,18 @@
 import { CircleMarker, MapContainer, Polyline, TileLayer, Tooltip } from "react-leaflet";
-import { COUNTRIES } from "@/lib/countries";
+import { COUNTRIES, type Country } from "@/lib/countries";
 import "leaflet/dist/leaflet.css";
 
 interface Props {
   selectedA: string | null;
   selectedB: string | null;
   onSelect: (id: string) => void;
+  countries?: Country[];
 }
 
-export default function CountryMap({ selectedA, selectedB, onSelect }: Props) {
-  const a = COUNTRIES.find((c) => c.id === selectedA);
-  const b = COUNTRIES.find((c) => c.id === selectedB);
+export default function CountryMap({ selectedA, selectedB, onSelect, countries }: Props) {
+  const visible = countries ?? COUNTRIES;
+  const a = visible.find((c) => c.id === selectedA);
+  const b = visible.find((c) => c.id === selectedB);
 
   return (
     <MapContainer
@@ -41,7 +43,7 @@ export default function CountryMap({ selectedA, selectedB, onSelect }: Props) {
         />
       ) : null}
 
-      {COUNTRIES.map((country) => {
+      {visible.map((country) => {
         const isA = country.id === selectedA;
         const isB = country.id === selectedB;
         const selected = isA || isB;
