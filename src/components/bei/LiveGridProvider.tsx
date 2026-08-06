@@ -32,33 +32,41 @@ export function LiveGridProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     const now = Date.now();
 
+    /** Never let a slow/hung upstream call keep the badge in "checking" state. */
+    const withTimeout = (p: Promise<LiveIntensity>, ms = 8000) =>
+      Promise.race([
+        p,
+        new Promise<LiveIntensity>((resolve) =>
+          setTimeout(() => resolve({ ok: false, message: "Live feed timed out" }), ms),
+        ),
+      ]);
+
     void Promise.all(
       COUNTRIES.map(async (country) => {
         const hit = cache.get(country.name);
-        if (hit && now - hit.at < CACHE_TTL_MS) return [country.name, hit.value] as const;
-        try {
-          const value = await fetchLive({ data: { country: country.name } });
-          cache.set(country.name, { at: Date.now(), value });
-          return [country.name, value] as const;
-        } catch (error) {
-          const value: LiveIntensity = {
-            ok: false,
-            country: country.name,
-            message: (error as Error).message,
-          };
-          return [country.name, value] as const;
+        if (hit && now - hit.at < CACHE_TTL_MS) {
+          if (!cancelled) setData((prev) => ({ ...prev, [country.name]: hit.value }));
+          return;
         }
+        let value: LiveIntensity;
+        try {
+          value = await withTimeout(fetchLive({ data: { country: country.name } }));
+          if (value.ok) cache.set(country.name, { at: Date.now(), value });
+        } catch (error) {
+          value = { ok: false, message: (error as Error).message };
+        }
+        // Settle each country independently so one slow zone can't block the rest.
+        if (!cancelled) setData((prev) => ({ ...prev, [country.name]: value }));
       }),
-    ).then((entries) => {
-      if (cancelled) return;
-      setData(Object.fromEntries(entries));
-      setLoading(false);
+    ).finally(() => {
+      if (!cancelled) setLoading(false);
     });
 
     return () => {
       cancelled = true;
     };
   }, [fetchLive]);
+
 
   const value = useMemo<LiveGridState>(
     () => ({
