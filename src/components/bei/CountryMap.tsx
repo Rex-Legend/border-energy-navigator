@@ -21,6 +21,7 @@ export default function CountryMap({ selectedA, selectedB, onSelect, countries }
       minZoom={1}
       scrollWheelZoom={false}
       worldCopyJump
+      attributionControl={false}
       style={{ height: "100%", width: "100%" }}
     >
       <TileLayer
