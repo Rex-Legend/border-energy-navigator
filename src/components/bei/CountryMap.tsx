@@ -21,10 +21,10 @@ export default function CountryMap({ selectedA, selectedB, onSelect, countries }
       minZoom={1}
       scrollWheelZoom={false}
       worldCopyJump
+      attributionControl={false}
       style={{ height: "100%", width: "100%" }}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; CARTO'
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
 
